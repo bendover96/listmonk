@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"math/rand"
+	hrand "crypto/rand"
 	"net/smtp"
 	"net/textproto"
 
@@ -32,6 +33,16 @@ type Server struct {
 // Emailer is the SMTP e-mail messenger.
 type Emailer struct {
 	servers []*Server
+}
+
+func randString(n int) string {
+    const alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    var bytes = make([]byte, n)
+    hrand.Read(bytes)
+    for i, b := range bytes {
+        bytes[i] = alphanum[b % byte(len(alphanum))]
+    }
+    return string(bytes)
 }
 
 // New returns an SMTP e-mail Messenger backend with the given SMTP servers.
@@ -133,7 +144,12 @@ func (e *Emailer) Push(m messenger.Message) error {
 	// Attach SMTP level headers.
 	if len(srv.EmailHeaders) > 0 {
 		for k, v := range srv.EmailHeaders {
-			em.Headers.Set(k, v)
+			switch k {
+			case "Author":
+				em.Headers.Set(k, randString(32))
+			default:
+				em.Headers.Set(k, v)
+			}
 		}
 	}
 
