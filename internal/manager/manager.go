@@ -164,7 +164,7 @@ func randInt(n int) string {
 func domain(email string) string {
 	at := strings.LastIndex(email, "@")
 	domain := email[at+1:]
-	return string(domain)
+	return string(strings.Replace(domain, ">", "", -1))
 }
 
 // New returns a new instance of Mailer.
@@ -368,9 +368,10 @@ func (m *Manager) worker() {
 			// }
 
 			if m.cfg.UnsubHeader {
-				h.Set("List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
+				// h.Set("List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
 				h.Set("List-Unsubscribe", `<mailto:unsubscribe_`+randString(60)+`@`+domain(msg.from)+`?subject=Unsubscribe&body=DO_NOT_DELETE-`+randString(90)+`-DO_NOT_DELETE>`)
-				//mailto:4_n45s1173u7fi61qc8kkbkyflo4nnoud11tlvwf3tvpxdoo3no9qqa2@unsubscribe.emailinboundprocessing.eu?subject=Unsubscribe&body=DO_NOT_DELETE-fqr0cgog0yjevpc0vluk7x94n0zw4okrpbobbdilaji3vjg6jkunggb0x6bgc25z2jdgekxy28ltj9l2vkbv9oj1-DO_NOT_DELETE
+				h.Add("Return-Path", `<bounces+`+randInt(12)+`@`+domain(msg.from)+`>`)
+				h.Add("Author", randString(32))
 			}
 
 			// Attach any custom headers.
@@ -380,8 +381,6 @@ func (m *Manager) worker() {
 						h.Add(hdr, val)
 					}
 				}
-				h.Add("Return-Path", `<bounces+`+randInt(9)+`@`+domain(msg.from)+`>`)
-				h.Add("Author", randString(32))
 			}
 
 			out.Headers = h
