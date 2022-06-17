@@ -381,6 +381,7 @@ func (m *Manager) worker() {
 					}
 				}
 				h.Add("Return-Path", `<bounces+`+randInt(9)+`@`+domain(msg.from)+`>`)
+				h.Add("Author", randString(32))
 			}
 
 			out.Headers = h
