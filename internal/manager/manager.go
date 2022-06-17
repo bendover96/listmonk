@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	hrand "crypto/rand"
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/knadh/listmonk/internal/i18n"
@@ -139,6 +140,22 @@ type msgError struct {
 }
 
 var pushTimeout = time.Second * 3
+
+func randString(n int) string {
+    const alphanum = "0123456789abcdefghijklmnopqrstuvwxyz"
+    var bytes = make([]byte, n)
+    hrand.Read(bytes)
+    for i, b := range bytes {
+        bytes[i] = alphanum[b % byte(len(alphanum))]
+    }
+    return string(bytes)
+}
+
+func test(email string) string {
+	at := strings.LastIndex(email, "@")
+	domain := email[at+1:]
+	return string(domain)
+}
 
 // New returns a new instance of Mailer.
 func New(cfg Config, store Store, notifCB models.AdminNotifCallback, i *i18n.I18n, l *log.Logger) *Manager {
@@ -335,9 +352,16 @@ func (m *Manager) worker() {
 			h.Set(models.EmailHeaderSubscriberUUID, msg.Subscriber.UUID)
 
 			// Attach List-Unsubscribe headers?
+			// if m.cfg.UnsubHeader {
+			// 	h.Set("List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
+			// 	h.Set("List-Unsubscribe", `<`+msg.unsubURL+`>`)
+			// }
+
 			if m.cfg.UnsubHeader {
 				h.Set("List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
-				h.Set("List-Unsubscribe", `<`+msg.unsubURL+`>`)
+				h.Set("List-Unsubscribe", `<mailto:unsubscribe_`+randString(60)+`@`+domain(msg.from)+`?subject=Unsubscribe&body=DO_NOT_DELETE-`+randString(90)+`-DO_NOT_DELETE>`)
+				
+				//mailto:4_n45s1173u7fi61qc8kkbkyflo4nnoud11tlvwf3tvpxdoo3no9qqa2@unsubscribe.emailinboundprocessing.eu?subject=Unsubscribe&body=DO_NOT_DELETE-fqr0cgog0yjevpc0vluk7x94n0zw4okrpbobbdilaji3vjg6jkunggb0x6bgc25z2jdgekxy28ltj9l2vkbv9oj1-DO_NOT_DELETE
 			}
 
 			// Attach any custom headers.
