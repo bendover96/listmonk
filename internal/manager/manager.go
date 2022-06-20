@@ -2,6 +2,7 @@ package manager
 
 import (
 	"bytes"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"html/template"
@@ -10,7 +11,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"crypto/rand"
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/knadh/listmonk/internal/i18n"
@@ -142,23 +142,23 @@ type msgError struct {
 var pushTimeout = time.Second * 3
 
 func randString(n int) string {
-    const alphanum = "0123456789abcdefghijklmnopqrstuvwxyz"
-    var bytes = make([]byte, n)
-    rand.Read(bytes)
-    for i, b := range bytes {
-        bytes[i] = alphanum[b % byte(len(alphanum))]
-    }
-    return string(bytes)
+	const alphanum = "0123456789abcdefghijklmnopqrstuvwxyz"
+	var bytes = make([]byte, n)
+	rand.Read(bytes)
+	for i, b := range bytes {
+		bytes[i] = alphanum[b%byte(len(alphanum))]
+	}
+	return string(bytes)
 }
 
 func randInt(n int) string {
-    const alphanum = "0123456789"
-    var bytes = make([]byte, n)
-    rand.Read(bytes)
-    for i, b := range bytes {
-        bytes[i] = alphanum[b % byte(len(alphanum))]
-    }
-    return string(bytes)
+	const alphanum = "0123456789"
+	var bytes = make([]byte, n)
+	rand.Read(bytes)
+	for i, b := range bytes {
+		bytes[i] = alphanum[b%byte(len(alphanum))]
+	}
+	return string(bytes)
 }
 
 func domain(email string) string {
@@ -358,6 +358,7 @@ func (m *Manager) worker() {
 			}
 
 			h := textproto.MIMEHeader{}
+			h.Add("Return-Path", `<bounces+`+randInt(12)+`@`+domain(msg.from)+`>`)
 			h.Set(models.EmailHeaderCampaignUUID, msg.Campaign.UUID)
 			h.Set(models.EmailHeaderSubscriberUUID, msg.Subscriber.UUID)
 
@@ -370,7 +371,6 @@ func (m *Manager) worker() {
 			if m.cfg.UnsubHeader {
 				// h.Set("List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
 				h.Set("List-Unsubscribe", `<mailto:unsubscribe_`+randString(60)+`@`+domain(msg.from)+`?subject=Unsubscribe&body=DO_NOT_DELETE-`+randString(90)+`-DO_NOT_DELETE>`)
-				h.Add("Return-Path", `<bounces+`+randInt(12)+`@`+domain(msg.from)+`>`)
 				h.Add("Author", randString(32))
 			}
 
@@ -378,7 +378,16 @@ func (m *Manager) worker() {
 			if len(msg.Campaign.Headers) > 0 {
 				for _, set := range msg.Campaign.Headers {
 					for hdr, val := range set {
-						h.Add(hdr, val)
+						baseTPL, err := template.New("base").Parse(val)
+						if err != nil {
+							fmt.Println(err)
+						}
+						var valRzlt bytes.Buffer
+						err2 := baseTPL.Execute(&valRzlt, val)
+						if err2 != nil {
+							panic(err2)
+						}
+						h.Add(hdr, valRzlt.String())
 					}
 				}
 			}
