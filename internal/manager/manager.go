@@ -701,7 +701,7 @@ func (m *Manager) exhaustCampaign(c *models.Campaign, status string) (*models.Ca
 // trackLink register a URL and return its UUID to be used in message templates
 // for tracking links.
 func (m *Manager) trackLink(url, campUUID, subUUID string) string {
-	url = strings.ReplaceAll(url, "&amp;", "&")
+	//url = strings.ReplaceAll(url, "&amp;", "&")
 	
 	m.linksMut.RLock()
 	if uu, ok := m.links[url]; ok {
