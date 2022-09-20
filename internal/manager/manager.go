@@ -146,29 +146,21 @@ type msgError struct {
 
 var pushTimeout = time.Second * 3
 
-func randString(n int) string {
-	const alphanum = "0123456789abcdefghijklmnopqrstuvwxyz"
-	var bytes = make([]byte, n)
-	rand.Read(bytes)
-	for i, b := range bytes {
-		bytes[i] = alphanum[b%byte(len(alphanum))]
-	}
-	return string(bytes)
-}
-
 func randInt(n int) string {
-	const alphanum = "0123456789"
+	const num = "0123456789"
 	var bytes = make([]byte, n)
 	rand.Read(bytes)
+
 	for i, b := range bytes {
-		bytes[i] = alphanum[b%byte(len(alphanum))]
+		bytes[i] = num[b%byte(len(num))]
 	}
+
 	return string(bytes)
 }
 
-func domain(email string) string {
-	at := strings.LastIndex(email, "@")
-	domain := email[at+1:]
+func domain(e string) string {
+	at := strings.LastIndex(e, "@")
+	domain := e[at+1:]
 	return string(strings.Replace(domain, ">", "", -1))
 }
 
@@ -394,27 +386,29 @@ func (m *Manager) worker() {
 			}
 
 			h := textproto.MIMEHeader{}
-			h.Add("Return-Path", `<bounces+`+randInt(12)+`@`+domain(msg.from)+`>`)
+			h.Add("Return-Path", `<bounces+`+randInt(15)+`@`+domain(msg.from)+`>`)
 			h.Set(models.EmailHeaderCampaignUUID, msg.Campaign.UUID)
 			h.Set(models.EmailHeaderSubscriberUUID, msg.Subscriber.UUID)
 
 			// Attach List-Unsubscribe headers?
-			// if m.cfg.UnsubHeader {
-			// 	h.Set("List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
-			// 	h.Set("List-Unsubscribe", `<`+msg.unsubURL+`>`)
-			// }
-
 			if m.cfg.UnsubHeader {
-				// h.Set("List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
-				h.Set("List-Unsubscribe", `<mailto:unsubscribe_`+randString(60)+`@`+domain(msg.from)+`?subject=Unsubscribe&body=DO_NOT_DELETE-`+randString(90)+`-DO_NOT_DELETE>`)
-				h.Add("Author", randString(32))
+				var randStrBufOne bytes.Buffer
+				var randStrBufTwo bytes.Buffer
+				template.Must(template.New("keys").Funcs(sprig.TxtFuncMap()).Parse("{{ randAlphaNum 66 }}")).Execute(&randStrBufOne, nil)
+				template.Must(template.New("keys").Funcs(sprig.TxtFuncMap()).Parse("{{ randAlphaNum 66 }}")).Execute(&randStrBufTwo, nil)
+				h.Set("List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
+				h.Set("List-Unsubscribe", `<mailto:unsubscribe_`+randStrBufOne.String()+`@`+domain(msg.from)+`?subject=Unsubscribe&body=DO_NOT_DELETE-`+randStrBufTwo.String()+`-DO_NOT_DELETE>`)
+
+				//				h.Set("List-Unsubscribe", `<`+msg.unsubURL+`>`)
 			}
 
 			// Attach any custom headers.
 			if len(msg.Campaign.Headers) > 0 {
 				for _, set := range msg.Campaign.Headers {
 					for hdr, val := range set {
-						h.Add(hdr, val)
+						var valBuf bytes.Buffer
+						template.Must(template.New("values").Funcs(sprig.TxtFuncMap()).Parse(val)).Execute(&valBuf, nil)
+						h.Add(hdr, valBuf.String())
 					}
 				}
 			}
@@ -721,7 +715,7 @@ func (m *Manager) exhaustCampaign(c *models.Campaign, status string) (*models.Ca
 // for tracking links.
 func (m *Manager) trackLink(url, campUUID, subUUID string) string {
 	url = strings.ReplaceAll(url, "&amp;", "&")
-	
+
 	m.linksMut.RLock()
 	if uu, ok := m.links[url]; ok {
 		m.linksMut.RUnlock()
